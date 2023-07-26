@@ -73,6 +73,12 @@ char HostAddress[255] = AWS_IOT_MQTT_HOST;
  */
 uint32_t port = AWS_IOT_MQTT_PORT;
 
+#define CFG_PATCH_AWS_DONT_ALLOW_RESET
+#ifdef CFG_PATCH_AWS_DONT_ALLOW_RESET
+#include "http_server.h"
+extern int g_wifi_connect_status;
+#endif
+
 void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, uint16_t topicNameLen,
                                     IoT_Publish_Message_Params *params, void *pData) {
     ESP_LOGI(TAG, "Subscribe callback Test: %.*s\t%.*s", topicNameLen, topicName, (int) params->payloadLen, (char *)params->payload);
@@ -185,26 +191,40 @@ void aws_iot_task(void *param) {
 
     while((NETWORK_ATTEMPTING_RECONNECT == rc || NETWORK_RECONNECTED == rc || SUCCESS == rc)) {
 
+#ifdef CFG_PATCH_AWS_DONT_ALLOW_RESET
+        if (g_wifi_connect_status == HTTP_WIFI_STATUS_CONNECT_SUCCESS)
+#endif
+        {
         //Max time the yield function will wait for read messages
-        rc = aws_iot_mqtt_yield(&client, 100);
+            rc = aws_iot_mqtt_yield(&client, 100);
         if(NETWORK_ATTEMPTING_RECONNECT == rc) {
-            // If the client is attempting to reconnect we will skip the rest of the loop.
-            continue;
-        }
+                // If the client is attempting to reconnect we will skip the rest of the loop.
+                continue;
+            }
 
         ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetName(NULL), uxTaskGetStackHighWaterMark(NULL));
+        }
         vTaskDelay(3000 / portTICK_PERIOD_MS);
+#ifdef CFG_PATCH_AWS_DONT_ALLOW_RESET
+        if (g_wifi_connect_status == HTTP_WIFI_STATUS_CONNECT_SUCCESS)
+#endif
+        {
         sprintf(cPayload, "%s : %d ", "WiFi RSSI", wifi_app_get_rssi());
         paramsQOS0.payloadLen = strlen(cPayload);
         rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
-
+        }
+#ifdef CFG_PATCH_AWS_DONT_ALLOW_RESET
+        if (g_wifi_connect_status == HTTP_WIFI_STATUS_CONNECT_SUCCESS)
+#endif
+        {
         sprintf(cPayload, "%s : %.1f, %s : %.1f", "Temperature", getTemperature(), "Humidity", getHumidity());
         paramsQOS1.payloadLen = strlen(cPayload);
         rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS1);
         if (rc == MQTT_REQUEST_TIMEOUT_ERROR) {
-            ESP_LOGW(TAG, "QOS1 publish ack not received.");
-            rc = SUCCESS;
+                ESP_LOGW(TAG, "QOS1 publish ack not received.");
+                rc = SUCCESS;
         }
+    }
     }
 
     ESP_LOGE(TAG, "An error occurred in the main loop.");
@@ -213,10 +233,10 @@ void aws_iot_task(void *param) {
 
 void aws_iot_start(void)
 {
-	if (task_aws_iot == NULL)
-	{
-		xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", AWS_IOT_TASK_STACK_SIZE, NULL, AWS_IOT_TASK_PRIORITY, &task_aws_iot, AWS_IOT_TASK_CORE_ID);
-	}
+    if (task_aws_iot == NULL)
+    {
+        xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", AWS_IOT_TASK_STACK_SIZE, NULL, AWS_IOT_TASK_PRIORITY, &task_aws_iot, AWS_IOT_TASK_CORE_ID);
+    }
 }
 
 

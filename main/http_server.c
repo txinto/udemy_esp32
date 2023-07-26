@@ -23,7 +23,7 @@
 static const char TAG[] = "http_server";
 
 // Wifi connect status
-static int g_wifi_connect_status = NONE;
+int g_wifi_connect_status = NONE;
 
 // Firmware update status
 static int g_fw_update_status = OTA_UPDATE_PENDING;
@@ -100,7 +100,8 @@ static void http_server_monitor(void *parameter)
 					ESP_LOGI(TAG, "HTTP_MSG_WIFI_CONNECT_INIT");
 					
 					g_wifi_connect_status = HTTP_WIFI_STATUS_CONNECTING;
-					break;
+
+					break;
 
 				case HTTP_MSG_WIFI_CONNECT_SUCCESS:
 					ESP_LOGI(TAG, "HTTP_MSG_WIFI_CONNECT_SUCCESS");
